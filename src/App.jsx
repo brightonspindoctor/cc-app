@@ -31,10 +31,19 @@ function Tick({ on }) {
   );
 }
 
-function Header({ today, onBack }) {
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function Header({ onBack, left }) {
   return (
     <header className="top">
-      {onBack ? (
+      {left ? left : onBack ? (
         <button className="back" onClick={onBack} aria-label="Back">
           <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
@@ -94,18 +103,19 @@ function Flag({ lang }) {
   );
 }
 
-function Protocol({ today, state, update, back, celebrate }) {
-  const w = useMemo(() => wordFor(today), [today]);
-  const done = state.protocolDone?.includes(today);
+function WordView({ day, today, state, update, celebrate, header }) {
+  const w = useMemo(() => wordFor(day), [day]);
+  const isToday = day === today;
+  const done = state.protocolDone?.includes(day);
   const markDone = () => {
-    if (done) return;
+    if (done || !isToday) return;
     update((s) => ({ ...s, protocolDone: [...(s.protocolDone || []), today] }));
     celebrate();
   };
   return (
     <main className="screen protocol">
-      <Header onBack={back} />
-      <p className="kicker">{prettyDate(today)}</p>
+      {header}
+      <p className="kicker">{prettyDate(day)}</p>
       <h1 className="word">{w.en.toUpperCase()}</h1>
       <p className="pos">({w.type})</p>
       <p className="en-sentence">{w.sentence}</p>
@@ -120,14 +130,99 @@ function Protocol({ today, state, update, back, celebrate }) {
           </div>
         </section>
       ))}
-      <div className="bottom">
-        <button className={`done ${done ? "is-done" : ""}`} onClick={markDone} disabled={done}>
-          {done ? "Learned ✓" : "Done ✓"}
-        </button>
-        <Flame n={streak(state.protocolDone, today)} label="Switzerland Protocol" />
-      </div>
+      {isToday ? (
+        <div className="bottom">
+          <button className={`done ${done ? "is-done" : ""}`} onClick={markDone} disabled={done}>
+            {done ? "Learned ✓" : "Done ✓"}
+          </button>
+          <Flame n={streak(state.protocolDone, today)} label="Switzerland Protocol" />
+        </div>
+      ) : (
+        <p className="past-note">{done ? "You learned this one ✓" : "Seen, not marked as done"}</p>
+      )}
       <p className="day-n">Word {w.n} of 365</p>
     </main>
+  );
+}
+
+const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
+
+function Calendar({ today, state, onPick, header }) {
+  const seen = new Set([...(state.protocolSeen || []), ...(state.protocolDone || [])]);
+  const done = new Set(state.protocolDone || []);
+  const [y0, m0] = today.split("-").map(Number);
+  const [ym, setYm] = useState([y0, m0 - 1]);
+  const [y, m] = ym;
+  const first = new Date(y, m, 1);
+  const days = new Date(y, m + 1, 0).getDate();
+  const lead = (first.getDay() + 6) % 7; // Monday first
+  const key = (d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const earliest = [...seen].sort()[0] || today;
+  const canPrev = key(1) > earliest;
+  const canNext = key(1) < today.slice(0, 8) + "01";
+  const shift = (n) => setYm(([yy, mm]) => { const d = new Date(yy, mm + n, 1); return [d.getFullYear(), d.getMonth()]; });
+  const monthName = first.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const count = [...seen].length;
+
+  return (
+    <main className="screen calendar">
+      {header}
+      <h1 className="cal-title">Words so far</h1>
+      <p className="status">{count === 1 ? "1 word seen" : `${count} words seen`}. Days you opened the app unlock their word.</p>
+      <div className="cal-nav">
+        <button onClick={() => shift(-1)} disabled={!canPrev} aria-label="Previous month">‹</button>
+        <h2>{monthName}</h2>
+        <button onClick={() => shift(1)} disabled={!canNext} aria-label="Next month">›</button>
+      </div>
+      <div className="cal-grid">
+        {WEEKDAYS.map((d, i) => <span key={i} className="wd">{d}</span>)}
+        {Array.from({ length: lead }, (_, i) => <span key={"x" + i} />)}
+        {Array.from({ length: days }, (_, i) => {
+          const k = key(i + 1);
+          const open = seen.has(k);
+          const cls = ["day", open ? "open" : "", done.has(k) ? "done" : "", k === today ? "today" : "", k > today ? "future" : ""].join(" ");
+          return (
+            <button key={k} className={cls} disabled={!open} onClick={() => onPick(k)} aria-label={open ? `${prettyDate(k)}: ${wordFor(k).en}` : prettyDate(k)}>
+              <span className="dn">{i + 1}</span>
+              {open && <span className="dw">{wordFor(k).en}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="cal-key">
+        <span><i className="k done" /> Learned</span>
+        <span><i className="k open" /> Seen</span>
+        <span><i className="k" /> Locked</span>
+      </div>
+    </main>
+  );
+}
+
+function Protocol({ today, state, update, back, celebrate }) {
+  const [sub, setSub] = useState("today"); // "today" | "calendar" | "YYYY-MM-DD"
+  useEffect(() => {
+    if (!state.protocolSeen?.includes(today)) update((s) => ({ ...s, protocolSeen: [...(s.protocolSeen || []), today] }));
+  }, [today, state.protocolSeen, update]);
+  useEffect(() => { window.scrollTo(0, 0); }, [sub]);
+
+  const backBtn = (fn, label = "Back") => (
+    <button className="back" onClick={fn} aria-label={label}>
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+  );
+  const calBtn = <button className="back cal-btn" onClick={() => setSub("calendar")} aria-label="Past words"><CalendarIcon /></button>;
+
+  if (sub === "calendar") {
+    return <Calendar today={today} state={state} onPick={(d) => setSub(d === today ? "today" : d)} header={<Header left={backBtn(() => setSub("today"))} />} />;
+  }
+  if (sub !== "today") {
+    return <WordView day={sub} today={today} state={state} update={update} celebrate={celebrate} header={<Header left={backBtn(() => setSub("calendar"), "Back to calendar")} />} />;
+  }
+  return (
+    <WordView
+      day={today} today={today} state={state} update={update} celebrate={celebrate}
+      header={<Header left={back ? <span className="hdr-l">{backBtn(back)}{calBtn}</span> : calBtn} />}
+    />
   );
 }
 
@@ -137,7 +232,7 @@ export default function App({ only }) {
   const [view, setView] = useState(() => only || location.hash.slice(1) || "home");
   const [party, setParty] = useState(0);
 
-  useEffect(() => save(state), [state]);
+  useEffect(() => { save(state); }, [state]);
   useEffect(() => {
     const onHash = () => setView(only || location.hash.slice(1) || "home");
     window.addEventListener("hashchange", onHash);
