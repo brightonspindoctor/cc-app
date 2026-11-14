@@ -1,11 +1,11 @@
 # CC
 
-A small home-screen web app with two daily habits:
+Two small home-screen web apps for daily habits:
 
 - **The Switzerland Protocol**: a word a day (noun or adjective) with an example sentence, in English, French, German and Italian.
 - **Ab Bandit**: a one-armed bandit that picks three ab exercises a day, with 3 nudges.
 
-Streaks are stored locally on the device.
+Each lives in its own folder (`/protocol/`, `/bandit/`) with its own name, icon and manifest, so they install as separate apps. The root page links to both. Streaks are stored locally on the device.
 
 ## Develop
 

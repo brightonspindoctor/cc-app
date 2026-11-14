@@ -1,5 +1,5 @@
 // Offline cache: network first for the page, cache first for built assets.
-const CACHE = "cc-v1";
+const CACHE = "cc-protocol-v1";
 self.addEventListener("install", (e) => { self.skipWaiting(); });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));

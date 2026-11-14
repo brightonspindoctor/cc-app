@@ -1,7 +1,7 @@
 {
-  "name": "CC",
-  "short_name": "CC",
-  "description": "The Switzerland Protocol and Ab Bandit",
+  "name": "Ab Bandit",
+  "short_name": "Ab Bandit",
+  "description": "Three ab exercises a day, by slot machine",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

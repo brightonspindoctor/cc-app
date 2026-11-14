@@ -131,15 +131,15 @@ function Protocol({ today, state, update, back, celebrate }) {
   );
 }
 
-export default function App() {
+export default function App({ only }) {
   const [today, setToday] = useState(todayKey);
   const [state, setState] = useState(load);
-  const [view, setView] = useState(() => (location.hash.slice(1) || "home"));
+  const [view, setView] = useState(() => only || location.hash.slice(1) || "home");
   const [party, setParty] = useState(0);
 
   useEffect(() => save(state), [state]);
   useEffect(() => {
-    const onHash = () => setView(location.hash.slice(1) || "home");
+    const onHash = () => setView(only || location.hash.slice(1) || "home");
     window.addEventListener("hashchange", onHash);
     // Roll over at midnight / when reopened from the background.
     const tick = () => setToday(todayKey());
@@ -150,10 +150,10 @@ export default function App() {
       clearInterval(id);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, []);
+  }, [only]);
 
   const go = (v) => { location.hash = v === "home" ? "" : v; setView(v); window.scrollTo(0, 0); };
-  const back = () => go("home");
+  const back = only ? undefined : () => go("home");
   const celebrate = () => {
     setParty((p) => p + 1);
     navigator.vibrate?.([20, 40, 30]);

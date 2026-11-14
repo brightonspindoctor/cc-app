@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { REELS } from "./data/exercises.js";
-import { streak } from "./lib/store.js";
+import { streak, prettyDate } from "./lib/store.js";
 
 const N = 20;
 const BASE = N; // middle copy of the strip
@@ -159,6 +159,7 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
   return (
     <main className="screen bandit">
       <Header onBack={back} />
+      <p className="kicker">{prettyDate(today)}</p>
       <h1 className="bandit-title">Ab Bandit</h1>
       <p className="status">{status}</p>
 
