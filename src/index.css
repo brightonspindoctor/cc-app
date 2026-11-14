@@ -267,3 +267,23 @@ h1, h2, h3, p { margin: 0; }
   .nudge-pair { gap: 5px; }
   .machine-wrap { padding-right: 40px; }
 }
+
+/* ---------- Spins, removal ---------- */
+.plate { font-size: 13px; }
+.plate-group { display: flex; align-items: center; gap: 8px; }
+.workout .remove {
+  flex: none; width: 28px; height: 28px; margin: -4px -4px -4px 4px;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--paper);
+  color: var(--muted); font-size: 11px; line-height: 1;
+}
+.workout li.confirm { flex-direction: column; gap: 10px; font-weight: 600; font-size: 15px; background: #fff3ef; padding: 12px; border-radius: 10px; border: 1px solid #f2c9c2; margin: 6px 0; }
+.workout li.confirm::before { content: none; }
+.confirm-btns { display: flex; gap: 8px; }
+.confirm-btns button { flex: 1; height: 38px; border-radius: 9px; font-weight: 800; font-size: 15px; }
+.confirm-btns .yes { background: var(--red); color: #fff; border: 0; }
+.confirm-btns .no { background: var(--paper); border: 1px solid var(--line); }
+.removed { margin-top: 18px; font-size: 14px; }
+.removed summary { color: var(--muted); font-weight: 600; cursor: pointer; padding: 6px 0; }
+.removed ul { list-style: none; padding: 0; margin: 6px 0 0; }
+.removed li { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); font-weight: 700; }
+.removed li button { border: 1px solid var(--line); background: var(--paper); border-radius: 8px; padding: 6px 12px; font-weight: 700; font-size: 13px; }
