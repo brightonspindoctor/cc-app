@@ -1,6 +1,6 @@
 {
-  "name": "Ab Bandit",
-  "short_name": "Ab Bandit",
+  "name": "One Ab Bandit",
+  "short_name": "One Ab Bandit",
   "description": "Three ab exercises a day, by slot machine",
   "start_url": "./",
   "scope": "./",

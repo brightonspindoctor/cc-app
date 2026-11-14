@@ -48,7 +48,7 @@ function Reel({ items, pos, spinId, index, lit, onSettled }) {
       setTrans("none");
       setV(N + pos);
     } else if (spinId !== prev.spinId) {
-      setTrans(`transform ${1.3 + index * 0.45}s cubic-bezier(.12,.75,.25,1.03)`);
+      setTrans(`transform ${2.8 + index * 0.9}s cubic-bezier(.15,.6,.2,1.02)`);
       setV(3 * N + pos);
     } else if (pos !== prev.pos) {
       const step = (pos - prev.pos + N) % N === 1 ? 1 : -1;
@@ -226,7 +226,7 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
     <main className="screen bandit">
       <Header onBack={back} />
       <p className="kicker">{prettyDate(today)}</p>
-      <h1 className="bandit-title">Ab Bandit</h1>
+      <h1 className="bandit-title">One Ab Bandit</h1>
       <p className="status">{status}</p>
 
       <div className="machine-wrap">
@@ -263,7 +263,7 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
       {spun && !spinning && (
         <ol className="workout">
           {reels.map((items, r) => {
-            const [name, dose] = items[pos[r]];
+            const [name, dose, how] = items[pos[r]];
             const canRemove = !done && items.length > MIN_PER_REEL;
             if (confirm === name) {
               return (
@@ -277,12 +277,15 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
               );
             }
             return (
-              <li key={r}>
-                <span>{name}</span>
-                <em>{dose}</em>
-                {canRemove && (
-                  <button className="remove" onClick={() => setConfirm(name)} aria-label={`Remove ${name} from the rotation`}>✕</button>
-                )}
+              <li key={r} className="ex">
+                <div className="ex-row">
+                  <span>{name}</span>
+                  <em>{dose}</em>
+                  {canRemove && (
+                    <button className="remove" onClick={() => setConfirm(name)} aria-label={`Remove ${name} from the rotation`}>✕</button>
+                  )}
+                </div>
+                <p className="how">{how}</p>
               </li>
             );
           })}
@@ -308,7 +311,7 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
         <button className={`done ${done ? "is-done" : ""}`} onClick={markDone} disabled={done || !spun || spinning}>
           {done ? "Workout done ✓" : "Done ✓"}
         </button>
-        <Flame n={streak(state.banditDone, today)} label="Ab Bandit" />
+        <Flame n={streak(state.banditDone, today)} label="One Ab Bandit" />
       </div>
     </main>
   );

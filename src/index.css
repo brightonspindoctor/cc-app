@@ -317,3 +317,12 @@ h1, h2, h3, p { margin: 0; }
 .k { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line); }
 .k.open { background: var(--paper); }
 .k.done { background: var(--red); border-color: var(--red); }
+
+/* ---------- Exercise how-to ---------- */
+.workout li.ex { flex-direction: column; gap: 4px; }
+.workout li.ex::before { position: absolute; }
+.workout li.ex { position: relative; padding-left: 22px; }
+.workout li.ex::before { left: 2px; top: 11px; }
+.ex-row { display: flex; align-items: center; gap: 12px; }
+.ex-row span { flex: 1; }
+.how { font-size: 14px; font-weight: 400; line-height: 1.4; color: #4a463f; margin: 0; }
