@@ -228,7 +228,18 @@ function Protocol({ today, state, update, back, celebrate }) {
 
 export default function App({ only }) {
   const [today, setToday] = useState(todayKey);
-  const [state, setState] = useState(load);
+  const [state, setState] = useState(() => {
+    const s = load();
+    // Testing aid: open .../bandit/?reset (or .../protocol/?reset) to wipe that app's saved data.
+    const params = new URLSearchParams(location.search);
+    if (!params.has("reset")) return s;
+    params.delete("reset");
+    const q = params.toString();
+    history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash);
+    if (only === "bandit") return { ...s, bandit: undefined, banditDone: [], excluded: [] };
+    if (only === "protocol") return { ...s, protocolDone: [], protocolSeen: [] };
+    return {};
+  });
   const [view, setView] = useState(() => only || location.hash.slice(1) || "home");
   const [party, setParty] = useState(0);
 

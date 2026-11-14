@@ -12,7 +12,7 @@ Each lives in its own folder (`/protocol/`, `/bandit/`) with its own name, icon 
     npm install
     npm run dev
 
-Add `?date=YYYY-MM-DD` to the URL to preview another day.
+Add `?date=YYYY-MM-DD` to the URL to preview another day, or `?reset` to wipe that app's saved data on the device.
 
 ## Deploy
 
