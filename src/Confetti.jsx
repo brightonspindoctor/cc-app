@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 // Brief burst of tiny Swiss crosses and red squares.
-export default function Confetti() {
+export default function Confetti({ crosses = true }) {
   const [alive, setAlive] = useState(true);
   useEffect(() => {
     const t = setTimeout(() => setAlive(false), 1600);
@@ -16,7 +16,7 @@ export default function Confetti() {
       y: Math.sin(angle) * dist - 60,
       r: Math.random() * 360,
       s: 8 + Math.random() * 8,
-      cross: i % 3 === 0,
+      cross: crosses && i % 3 === 0,
       d: Math.random() * 0.12,
     };
   });

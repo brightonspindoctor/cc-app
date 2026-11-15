@@ -40,7 +40,7 @@ function CalendarIcon() {
   );
 }
 
-function Header({ onBack, left }) {
+function Header({ onBack, left, right }) {
   return (
     <header className="top">
       {left ? left : onBack ? (
@@ -48,7 +48,7 @@ function Header({ onBack, left }) {
           <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       ) : <span />}
-      <Cross />
+      {right === undefined ? <Cross /> : right}
     </header>
   );
 }
@@ -270,7 +270,7 @@ export default function App({ only }) {
       {view === "protocol" && <Protocol today={today} state={state} update={setState} back={back} celebrate={celebrate} />}
       {view === "bandit" && <Bandit today={today} state={state} update={setState} back={back} celebrate={celebrate} Header={Header} Flame={Flame} />}
       {view === "home" && <Home today={today} state={state} go={go} />}
-      {party > 0 && <Confetti key={party} />}
+      {party > 0 && <Confetti key={party} crosses={view !== "bandit"} />}
     </div>
   );
 }

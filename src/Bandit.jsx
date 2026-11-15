@@ -139,6 +139,7 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
   const [spinning, setSpinning] = useState(false);
   const [pulled, setPulled] = useState(false);
   const [confirm, setConfirm] = useState(null); // exercise name awaiting "remove?"
+  const [settings, setSettings] = useState(false);
   const stopped = useRef(0);
   const done = state.banditDone?.includes(today);
   const spinsLeft = MAX_SPINS - b.spins;
@@ -204,6 +205,8 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
 
   const restore = (name) => update((s) => ({ ...s, excluded: (s.excluded || []).filter((n) => n !== name) }));
 
+  const toggle = (r, name, on) => (on ? remove(r, name) : restore(name));
+
   const markDone = () => {
     if (done || !spun || spinning) return;
     update((s) => ({ ...s, banditDone: [...(s.banditDone || []), today] }));
@@ -222,9 +225,59 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
           ? `Happy with that? ${plural(spinsLeft, "spin")} and ${plural(b.nudges, "nudge")} left.`
           : "No spins or nudges left. That's your lot.";
 
+  const gear = (
+    <button className="back gear" onClick={() => setSettings(true)} aria-label="Settings: choose exercises">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+        <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm7.4 5.4l1.6 1.2-1.8 3.1-1.9-.7a7.4 7.4 0 0 1-2 1.2l-.3 2H9l-.3-2a7.4 7.4 0 0 1-2-1.2l-1.9.7L3 15.1l1.6-1.2a7.6 7.6 0 0 1 0-2.3L3 10.4l1.8-3.1 1.9.7a7.4 7.4 0 0 1 2-1.2l.3-2h3.6l.3 2a7.4 7.4 0 0 1 2 1.2l1.9-.7 1.8 3.1-1.6 1.2a7.6 7.6 0 0 1 0 2.3z" />
+      </svg>
+    </button>
+  );
+
+  if (settings) {
+    const out = new Set(excluded);
+    const titles = ["Reel 1 · Crunches and lifts", "Reel 2 · Twists and obliques", "Reel 3 · Planks and holds"];
+    return (
+      <main className="screen bandit settings">
+        <Header onBack={() => setSettings(false)} right={null} />
+        <h1 className="bandit-title">Exercises</h1>
+        <p className="status">Switch off any you don't want on the reels. Each reel keeps at least {MIN_PER_REEL}.</p>
+        {REELS.map((items, r) => {
+          const onCount = items.filter(([n]) => !out.has(n)).length;
+          return (
+            <section key={r} className="set-reel">
+              <h2>{titles[r]} <span>{onCount} of {items.length} on</span></h2>
+              <ul>
+                {items.map(([name, dose, how]) => {
+                  const on = !out.has(name);
+                  const locked = on && onCount <= MIN_PER_REEL;
+                  return (
+                    <li key={name} className={on ? "" : "off"}>
+                      <details>
+                        <summary><span className="nm">{name}</span><em>{dose}</em></summary>
+                        <p className="how">{how}</p>
+                      </details>
+                      <button
+                        role="switch"
+                        aria-checked={on}
+                        aria-label={`${name} ${on ? "on" : "off"}`}
+                        className={`switch ${on ? "on" : ""}`}
+                        disabled={locked || spinning}
+                        onClick={() => toggle(r, name, on)}
+                      ><i /></button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
+      </main>
+    );
+  }
+
   return (
     <main className="screen bandit">
-      <Header onBack={back} />
+      <Header onBack={back} right={gear} />
       <p className="kicker">{prettyDate(today)}</p>
       <h1 className="bandit-title">One Ab Bandit</h1>
       <p className="status">{status}</p>
@@ -235,7 +288,6 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
             <div className="marquee">
               {[0, 1, 2].map((i) => <span key={i} className={`bulb ${i < spinsLeft ? "lit" : ""} ${spinning ? "chase" : ""}`} style={{ animationDelay: `${i * 0.15}s` }} />)}
             </div>
-            <span className="crown-cross" />
           </div>
           <div className="window">
             {reels.map((items, r) => (
@@ -291,20 +343,6 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
           })}
           <li className="rounds">3 rounds · 30s rest between</li>
         </ol>
-      )}
-
-      {excluded.length > 0 && (
-        <details className="removed">
-          <summary>Removed exercises ({excluded.length})</summary>
-          <ul>
-            {excluded.map((name) => (
-              <li key={name}>
-                <span>{name}</span>
-                <button onClick={() => restore(name)}>Put back</button>
-              </li>
-            ))}
-          </ul>
-        </details>
       )}
 
       <div className="bottom">

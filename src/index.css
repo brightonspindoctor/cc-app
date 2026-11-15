@@ -326,3 +326,23 @@ h1, h2, h3, p { margin: 0; }
 .ex-row { display: flex; align-items: center; gap: 12px; }
 .ex-row span { flex: 1; }
 .how { font-size: 14px; font-weight: 400; line-height: 1.4; color: #4a463f; margin: 0; }
+
+/* ---------- Bandit settings ---------- */
+.gear { color: var(--ink); padding: 8px 0 8px 8px; margin-right: -4px; }
+.set-reel { margin-top: 22px; }
+.set-reel h2 { font-size: 15px; font-weight: 800; display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px; border-bottom: 2px solid var(--ink); }
+.set-reel h2 span { font-size: 12px; font-weight: 600; color: var(--muted); }
+.set-reel ul { list-style: none; margin: 0; padding: 0; }
+.set-reel li { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.set-reel li details { flex: 1; min-width: 0; }
+.set-reel summary { list-style: none; display: flex; gap: 10px; align-items: baseline; cursor: pointer; padding: 4px 0; }
+.set-reel summary::-webkit-details-marker { display: none; }
+.set-reel .nm { font-weight: 700; font-size: 16px; }
+.set-reel summary em { font-style: normal; font-size: 13px; color: var(--muted); font-weight: 600; }
+.set-reel .how { margin-top: 4px; }
+.set-reel li.off .nm, .set-reel li.off em { color: #b3ac9e; text-decoration: line-through; }
+.switch { flex: none; position: relative; width: 50px; height: 30px; border-radius: 15px; border: 0; background: #d9d2c3; transition: background .2s; padding: 0; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+.switch.on { background: var(--red); }
+.switch.on i { transform: translateX(20px); }
+.switch:disabled { opacity: .45; }
