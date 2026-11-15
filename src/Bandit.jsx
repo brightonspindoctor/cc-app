@@ -13,9 +13,39 @@ function rand(n) {
   return a[0] % n;
 }
 
-function reelsWithout(excluded = []) {
+// Built-in exercises plus her own (stored locally as { name, dose, reel }).
+function allReels(custom = []) {
+  return REELS.map((items, r) => [
+    ...items,
+    ...custom.filter((c) => c.reel === r).map((c) => [c.name, c.dose || "", "", true]),
+  ]);
+}
+
+function reelsWithout(excluded = [], custom = []) {
   const out = new Set(excluded);
-  return REELS.map((items) => items.filter(([name]) => !out.has(name)));
+  return allReels(custom).map((items) => items.filter(([name]) => !out.has(name)));
+}
+
+function AddExercise({ onAdd, taken }) {
+  const [name, setName] = useState("");
+  const [dose, setDose] = useState("");
+  const [err, setErr] = useState("");
+  const submit = (e) => {
+    e.preventDefault();
+    const n = name.trim().replace(/\s+/g, " ");
+    if (!n) return setErr("Give it a name.");
+    if (taken.has(n.toLowerCase())) return setErr("That one's already in the machine.");
+    onAdd(n, dose.trim());
+    setName(""); setDose(""); setErr("");
+  };
+  return (
+    <form className="add-ex" onSubmit={submit}>
+      <input value={name} onChange={(e) => { setName(e.target.value); setErr(""); }} placeholder="Add an exercise" maxLength={40} aria-label="New exercise name" />
+      <input value={dose} onChange={(e) => setDose(e.target.value)} placeholder="e.g. ×12" maxLength={16} aria-label="Reps or time (optional)" className="dose" />
+      <button type="submit" aria-label="Add exercise">+</button>
+      {err && <p className="add-err">{err}</p>}
+    </form>
+  );
 }
 
 function fresh(today, reels) {
@@ -129,7 +159,8 @@ function Dots({ n, max }) {
 
 export default function Bandit({ today, state, update, back, celebrate, Header, Flame }) {
   const excluded = state.excluded || [];
-  const reels = reelsWithout(excluded);
+  const custom = state.custom || [];
+  const reels = reelsWithout(excluded, custom);
   const saved = normalise(state.bandit?.date === today ? state.bandit : null);
   const [initial] = useState(() => fresh(today, reels));
   const b = saved || (initial.date === today ? initial : fresh(today, reels));
@@ -207,6 +238,28 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
 
   const toggle = (r, name, on) => (on ? remove(r, name) : restore(name));
 
+  const addCustom = (r, name, dose) =>
+    update((s) => ({ ...s, custom: [...(s.custom || []), { name, dose, reel: r }] }));
+
+  const deleteCustom = (r, name) => {
+    const items = reels[r];
+    const isOn = items.some(([n]) => n === name);
+    if (isOn && items.length <= MIN_PER_REEL) return;
+    const i = indexIn(items, name);
+    const left = items.filter(([n]) => n !== name);
+    update((s) => {
+      const cur = normalise(s.bandit?.date === today ? s.bandit : null) || b;
+      const sel = [...cur.sel];
+      if (sel[r] === name) sel[r] = left[i % left.length][0];
+      return {
+        ...s,
+        custom: (s.custom || []).filter((c) => c.name !== name),
+        excluded: (s.excluded || []).filter((n) => n !== name),
+        bandit: { ...cur, sel },
+      };
+    });
+  };
+
   const markDone = () => {
     if (done || !spun || spinning) return;
     update((s) => ({ ...s, banditDone: [...(s.banditDone || []), today] }));
@@ -235,27 +288,35 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
 
   if (settings) {
     const out = new Set(excluded);
+    const taken = new Set(allReels(custom).flat().map(([n]) => n.toLowerCase()));
     const titles = ["Reel 1 · Crunches and lifts", "Reel 2 · Twists and obliques", "Reel 3 · Planks and holds"];
     return (
       <main className="screen bandit settings">
         <Header onBack={() => setSettings(false)} right={null} />
         <h1 className="bandit-title">Exercises</h1>
-        <p className="status">Switch off any you don't want on the reels. Each reel keeps at least {MIN_PER_REEL}.</p>
-        {REELS.map((items, r) => {
+        <p className="status">Switch off any you don't want, or add your own. Each reel keeps at least {MIN_PER_REEL}.</p>
+        {allReels(custom).map((items, r) => {
           const onCount = items.filter(([n]) => !out.has(n)).length;
           return (
             <section key={r} className="set-reel">
               <h2>{titles[r]} <span>{onCount} of {items.length} on</span></h2>
               <ul>
-                {items.map(([name, dose, how]) => {
+                {items.map(([name, dose, how, mine]) => {
                   const on = !out.has(name);
                   const locked = on && onCount <= MIN_PER_REEL;
                   return (
                     <li key={name} className={on ? "" : "off"}>
-                      <details>
-                        <summary><span className="nm">{name}</span><em>{dose}</em></summary>
-                        <p className="how">{how}</p>
-                      </details>
+                      {how ? (
+                        <details>
+                          <summary><span className="nm">{name}</span><em>{dose}</em></summary>
+                          <p className="how">{how}</p>
+                        </details>
+                      ) : (
+                        <div className="plain"><span className="nm">{name}</span><em>{dose}</em>{mine && <span className="mine">Yours</span>}</div>
+                      )}
+                      {mine && (
+                        <button className="del" disabled={locked || spinning} onClick={() => deleteCustom(r, name)} aria-label={`Delete ${name}`}>Delete</button>
+                      )}
                       <button
                         role="switch"
                         aria-checked={on}
@@ -268,6 +329,7 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
                   );
                 })}
               </ul>
+              <AddExercise taken={taken} onAdd={(n, d) => addCustom(r, n, d)} />
             </section>
           );
         })}
@@ -337,7 +399,7 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
                     <button className="remove" onClick={() => setConfirm(name)} aria-label={`Remove ${name} from the rotation`}>✕</button>
                   )}
                 </div>
-                <p className="how">{how}</p>
+                {how && <p className="how">{how}</p>}
               </li>
             );
           })}
