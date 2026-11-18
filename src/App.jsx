@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { load, save, todayKey, prettyDate, streak, bestStreak } from "./lib/store.js";
-import { wordFor } from "./data/words.js";
+import { wordFor, START } from "./data/words.js";
 import Bandit from "./Bandit.jsx";
 import Confetti from "./Confetti.jsx";
 
@@ -138,7 +138,7 @@ function WordView({ day, today, state, update, celebrate, header }) {
           <Flame n={streak(state.protocolDone, today)} label="Switzerland Protocol" />
         </div>
       ) : (
-        <p className="past-note">{done ? "You learned this one ✓" : "Seen, not marked as done"}</p>
+        <p className="past-note">{done ? "You learned this one ✓" : "Not marked as learned"}</p>
       )}
       <p className="day-n">Word {w.n} of 365</p>
     </main>
@@ -148,8 +148,8 @@ function WordView({ day, today, state, update, celebrate, header }) {
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 function Calendar({ today, state, onPick, header }) {
-  const seen = new Set([...(state.protocolSeen || []), ...(state.protocolDone || [])]);
   const done = new Set(state.protocolDone || []);
+  const unlocked = (k) => k >= START && k <= today; // every day so far, missed or not
   const [y0, m0] = today.split("-").map(Number);
   const [ym, setYm] = useState([y0, m0 - 1]);
   const [y, m] = ym;
@@ -157,18 +157,17 @@ function Calendar({ today, state, onPick, header }) {
   const days = new Date(y, m + 1, 0).getDate();
   const lead = (first.getDay() + 6) % 7; // Monday first
   const key = (d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  const earliest = [...seen].sort()[0] || today;
-  const canPrev = key(1) > earliest;
+  const canPrev = key(1) > START;
   const canNext = key(1) < today.slice(0, 8) + "01";
   const shift = (n) => setYm(([yy, mm]) => { const d = new Date(yy, mm + n, 1); return [d.getFullYear(), d.getMonth()]; });
   const monthName = first.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-  const count = [...seen].length;
+  const learned = done.size;
 
   return (
     <main className="screen calendar">
       {header}
       <h1 className="cal-title">Words so far</h1>
-      <p className="status">{count === 1 ? "1 word seen" : `${count} words seen`}. Days you opened the app unlock their word.</p>
+      <p className="status">{learned === 1 ? "1 word learned" : `${learned} words learned`} so far. Tap any day to see its word, including ones you missed.</p>
       <div className="cal-nav">
         <button onClick={() => shift(-1)} disabled={!canPrev} aria-label="Previous month">‹</button>
         <h2>{monthName}</h2>
@@ -179,7 +178,7 @@ function Calendar({ today, state, onPick, header }) {
         {Array.from({ length: lead }, (_, i) => <span key={"x" + i} />)}
         {Array.from({ length: days }, (_, i) => {
           const k = key(i + 1);
-          const open = seen.has(k);
+          const open = unlocked(k);
           const cls = ["day", open ? "open" : "", done.has(k) ? "done" : "", k === today ? "today" : "", k > today ? "future" : ""].join(" ");
           return (
             <button key={k} className={cls} disabled={!open} onClick={() => onPick(k)} aria-label={open ? `${prettyDate(k)}: ${wordFor(k).en}` : prettyDate(k)}>
@@ -191,8 +190,8 @@ function Calendar({ today, state, onPick, header }) {
       </div>
       <div className="cal-key">
         <span><i className="k done" /> Learned</span>
-        <span><i className="k open" /> Seen</span>
-        <span><i className="k" /> Locked</span>
+        <span><i className="k open" /> Not learned</span>
+        <span><i className="k" /> Still to come</span>
       </div>
     </main>
   );
