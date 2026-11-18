@@ -356,3 +356,4 @@ h1, h2, h3, p { margin: 0; }
 .add-ex input.dose { flex: 0 0 92px; }
 .add-ex button { flex: none; width: 40px; height: 40px; border: 0; border-radius: 9px; background: var(--red); color: #fff; font-size: 24px; font-weight: 700; line-height: 1; }
 .add-err { flex-basis: 100%; margin: 0; font-size: 13px; color: var(--red); font-weight: 600; }
+.nudge.wide { width: 100%; max-width: 84px; font-size: 12px; font-weight: 900; letter-spacing: .06em; }

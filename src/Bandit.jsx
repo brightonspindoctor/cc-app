@@ -65,12 +65,12 @@ function indexIn(items, name) {
   return i < 0 ? 0 : i;
 }
 
-function Reel({ items, pos, spinId, index, lit, onSettled }) {
+function Reel({ items, pos, spinId, solo = 0, index, lit, onSettled }) {
   const N = items.length;
   const BASE = N;
   const [v, setV] = useState(BASE + pos);
   const [trans, setTrans] = useState("none");
-  const last = useRef({ spinId, pos, N });
+  const last = useRef({ spinId, solo, pos, N });
 
   useEffect(() => {
     const prev = last.current;
@@ -80,15 +80,17 @@ function Reel({ items, pos, spinId, index, lit, onSettled }) {
     } else if (spinId !== prev.spinId) {
       setTrans(`transform ${2.8 + index * 0.9}s cubic-bezier(.15,.6,.2,1.02)`);
       setV(3 * N + pos);
-    } else if (pos !== prev.pos) {
-      const step = (pos - prev.pos + N) % N === 1 ? 1 : -1;
-      setTrans("transform .32s cubic-bezier(.3,1.6,.5,1)");
-      setV((x) => x + step);
+    } else if (solo !== prev.solo) {
+      // A nudge: just this reel re-spins to a new random exercise.
+      setTrans("transform 2.2s cubic-bezier(.15,.6,.2,1.02)");
+      setV(3 * N + pos);
     }
-    last.current = { spinId, pos, N };
-  }, [spinId, pos, index, N]);
+    last.current = { spinId, solo, pos, N };
+  }, [spinId, solo, pos, index, N]);
 
-  const settle = () => {
+  const settle = (e) => {
+    // Ignore transitions bubbling up from the cells (e.g. the highlight fading).
+    if (e && (e.target !== e.currentTarget || e.propertyName !== "transform")) return;
     setTrans("none");
     setV(BASE + pos);
     onSettled?.(index);
@@ -172,6 +174,8 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
   const [confirm, setConfirm] = useState(null); // exercise name awaiting "remove?"
   const [settings, setSettings] = useState(false);
   const stopped = useRef(0);
+  const expect = useRef(3);
+  const [solo, setSolo] = useState([0, 0, 0]);
   const done = state.banditDone?.includes(today);
   const spinsLeft = MAX_SPINS - b.spins;
   const spun = b.spins > 0;
@@ -195,6 +199,7 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
     setTimeout(() => setPulled(false), 420);
     setTimeout(() => {
       stopped.current = 0;
+      expect.current = 3;
       setSpinning(true);
       setB((x) => ({ ...x, sel: reels.map((items) => items[rand(items.length)][0]), spins: x.spins + 1 }));
       setSpinId((n) => n + 1);
@@ -203,15 +208,22 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
 
   const onSettled = () => {
     stopped.current += 1;
-    if (stopped.current >= 3) setSpinning(false);
+    if (stopped.current >= expect.current) setSpinning(false);
     navigator.vibrate?.(8);
   };
 
-  const nudge = (r, dir) => {
+  const nudge = (r) => {
     if (!spun || spinning || done || b.nudges <= 0) return;
     navigator.vibrate?.(10);
     const items = reels[r];
-    const next = items[(pos[r] + dir + items.length) % items.length][0];
+    let j = rand(items.length - 1);
+    if (j >= pos[r]) j += 1; // never land on the same exercise
+    const next = items[j][0];
+    setConfirm(null);
+    stopped.current = 0;
+    expect.current = 1;
+    setSpinning(true);
+    setSolo((s) => s.map((n, i) => (i === r ? n + 1 : n)));
     setB((x) => {
       const sel = [...x.sel];
       sel[r] = next;
@@ -353,15 +365,14 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
           </div>
           <div className="window">
             {reels.map((items, r) => (
-              <Reel key={r} index={r} items={items} pos={pos[r]} spinId={spinId} lit={spun} onSettled={onSettled} />
+              <Reel key={r} index={r} items={items} pos={pos[r]} spinId={spinId} solo={solo[r]} lit={spun} onSettled={onSettled} />
             ))}
             <div className="payline l" /><div className="payline r" />
           </div>
           <div className="nudges">
             {[0, 1, 2].map((r) => (
               <div key={r} className="nudge-pair">
-                <button className="nudge" disabled={!canNudge} onClick={() => nudge(r, -1)} aria-label={`Nudge reel ${r + 1} up`}>▲</button>
-                <button className="nudge" disabled={!canNudge} onClick={() => nudge(r, 1)} aria-label={`Nudge reel ${r + 1} down`}>▼</button>
+                <button className="nudge wide" disabled={!canNudge} onClick={() => nudge(r)} aria-label={`Nudge reel ${r + 1} to a new exercise`}>NUDGE</button>
               </div>
             ))}
           </div>
