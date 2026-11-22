@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { load, save, todayKey, prettyDate, streak, bestStreak, addDays } from "./lib/store.js";
-import { wordFor, START } from "./data/words.js";
+import { wordFor, START, SUNDAY_WORDS } from "./data/words.js";
 import { grammarFor } from "./data/grammar.js";
 import Bandit from "./Bandit.jsx";
 import Confetti from "./Confetti.jsx";
@@ -145,7 +145,7 @@ function Grammar({ g, open, setOpen, boxRef }) {
 
 function WordView({ day, today, state, update, celebrate, header }) {
   const w = useMemo(() => wordFor(day), [day]);
-  const g = useMemo(() => grammarFor(w.n - 1), [w.n]);
+  const g = useMemo(() => grammarFor(w), [w]);
   const [gOpen, setGOpen] = useState(false);
   const gRef = useRef(null);
   useEffect(() => { setGOpen(false); }, [day]);
@@ -164,6 +164,7 @@ function WordView({ day, today, state, update, celebrate, header }) {
     <main className="screen protocol">
       {header}
       <p className="kicker">{prettyDate(day)}</p>
+      {w.sunday && <p className="sunday-badge">Sunday special · something cheeky</p>}
       <h1 className="word">{w.en.toUpperCase()}</h1>
       <p className="pos">({w.type})</p>
       <p className="en-sentence">{w.sentence}</p>
@@ -189,7 +190,7 @@ function WordView({ day, today, state, update, celebrate, header }) {
       ) : (
         <p className="past-note">{done ? "You learned this one ✓" : "Not marked as learned"}</p>
       )}
-      <p className="day-n">Word {w.n} of 365</p>
+      <p className="day-n">{w.sunday ? `Sunday word ${w.n} of ${SUNDAY_WORDS.length}` : `Word ${w.n} of 365`}</p>
     </main>
   );
 }
@@ -291,6 +292,7 @@ function Dictionary({ today, state, onPick, header }) {
               <div className="dict-en">
                 <strong>{w.en}</strong>
                 <em>{w.type === "noun" ? "n." : "adj."}</em>
+                {w.sunday && <span className="dict-sun">Sunday</span>}
                 {done.has(day) && <span className="dict-tick" aria-label="Learned">✓</span>}
               </div>
               <div className="dict-tr">

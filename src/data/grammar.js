@@ -1,4 +1,5 @@
 import TAGS from "./grammarTags.js";
+import SUNDAY_TAGS from "./grammarTagsSunday.js";
 
 // Short grammar notes, one topic per day, chosen to match that day's sentences.
 export const TOPICS = {
@@ -214,7 +215,8 @@ export const TOPICS = {
   },
 };
 
-export function grammarFor(index) {
-  const [topic, fr, de, it] = TAGS[index] || ["gender", [], [], []];
+// w is a word from wordFor(): w.n is 1-based within its list.
+export function grammarFor(w) {
+  const [topic, fr, de, it] = (w.sunday ? SUNDAY_TAGS : TAGS)[w.n - 1] || ["gender", [], [], []];
   return { id: topic, ...TOPICS[topic], highlights: { fr, de, it } };
 }

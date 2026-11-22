@@ -6,6 +6,9 @@ picks one per day, spreading topics out so the same note doesn't keep coming bac
 Regenerate src/data/grammarTags.js after editing the word lists:
   node --input-type=module -e "import {WORDS} from './src/data/words.js'; import fs from 'fs'; fs.writeFileSync('/tmp/words.json', JSON.stringify(WORDS));"
   python3 scripts/tag_grammar.py
+and for the Sunday list:
+  node --input-type=module -e "import S from './src/data/sundayWords.js'; import fs from 'fs'; fs.writeFileSync('/tmp/sunday.json', JSON.stringify(S));"
+  python3 scripts/tag_grammar.py --sunday
 """
 import collections, json, os, re, sys
 
@@ -14,6 +17,10 @@ from tag_grammar_base import (W, F, find, first_word, stem, default, imperative,
                               comparative, partitive, modal, question, negation, perfect, imperfect, possessive)
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "grammarTags.js")
+# --sunday: tag the Sunday list instead (dump it to /tmp/sunday.json first, like words.json)
+if "--sunday" in sys.argv:
+    W = json.load(open("/tmp/sunday.json"))
+    OUT = OUT.replace("grammarTags.js", "grammarTagsSunday.js")
 
 
 def word_hl(e):

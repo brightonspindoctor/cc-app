@@ -396,3 +396,7 @@ h1, h2, h3, p { margin: 0; }
 .dict-tr > span { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #2b2a28; min-width: 0; line-height: 1.2; }
 .dict-tr .flag { flex: none; width: 16px; height: 12px; margin: 0; }
 .dict-none { padding: 18px 2px; color: var(--muted); }
+
+/* ---------- Sunday words ---------- */
+.sunday-badge { display: inline-block; align-self: flex-start; margin: -6px 0 12px; padding: 4px 10px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+.dict-sun { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--ink); padding: 2px 6px; border-radius: 4px; }
