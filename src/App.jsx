@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { load, save, todayKey, prettyDate, streak, bestStreak } from "./lib/store.js";
 import { wordFor, START } from "./data/words.js";
+import { grammarFor } from "./data/grammar.js";
 import Bandit from "./Bandit.jsx";
 import Confetti from "./Confetti.jsx";
 
@@ -103,8 +104,55 @@ function Flag({ lang }) {
   );
 }
 
+// Wrap each highlight phrase (first occurrence, in order) in a tappable link to the grammar note.
+function Marked({ text, phrases = [], onTap }) {
+  const parts = [];
+  let rest = text, key = 0;
+  for (const p of phrases) {
+    const i = rest.indexOf(p);
+    if (i < 0) continue;
+    if (i > 0) parts.push(rest.slice(0, i));
+    parts.push(<button key={key++} type="button" className="hl" onClick={onTap}>{p}</button>);
+    rest = rest.slice(i + p.length);
+  }
+  parts.push(rest);
+  return <>{parts}</>;
+}
+
+const LANGS = [["fr", "Français"], ["de", "Deutsch"], ["it", "Italiano"]];
+
+function Grammar({ g, open, setOpen, boxRef }) {
+  return (
+    <details className="grammar" open={open} ref={boxRef} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>
+        <span className="g-kicker">Grammar</span>
+        <span className="g-title">{g.title}</span>
+        <span className="g-chev" aria-hidden="true">▾</span>
+      </summary>
+      <div className="g-body">
+        <p className="g-intro">{g.intro}</p>
+        {LANGS.map(([k, name]) => (
+          <div className="g-lang" key={k} lang={k}>
+            <p className="g-name"><Flag lang={k} /> {name}</p>
+            <p>{g[k]}</p>
+          </div>
+        ))}
+        <p className="g-hint">The underlined words in the sentences above show it in action.</p>
+      </div>
+    </details>
+  );
+}
+
 function WordView({ day, today, state, update, celebrate, header }) {
   const w = useMemo(() => wordFor(day), [day]);
+  const g = useMemo(() => grammarFor(w.n - 1), [w.n]);
+  const [gOpen, setGOpen] = useState(false);
+  const gRef = useRef(null);
+  useEffect(() => { setGOpen(false); }, [day]);
+  const jump = () => {
+    setGOpen(true);
+    requestAnimationFrame(() => gRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
   const isToday = day === today;
   const done = state.protocolDone?.includes(day);
   const markDone = () => {
@@ -120,16 +168,17 @@ function WordView({ day, today, state, update, celebrate, header }) {
       <p className="pos">({w.type})</p>
       <p className="en-sentence">{w.sentence}</p>
       <div className="rule" />
-      {[["fr", "Français"], ["de", "Deutsch"], ["it", "Italiano"]].map(([k, name]) => (
+      {LANGS.map(([k, name]) => (
         <section className="lang" key={k} lang={k}>
           <Flag lang={k} />
           <div>
             <p className="lang-name">{name}</p>
             <h3>{w[k]}</h3>
-            <p className="lang-sentence">{w[k + "S"]}</p>
+            <p className="lang-sentence"><Marked text={w[k + "S"]} phrases={g.highlights[k]} onTap={jump} /></p>
           </div>
         </section>
       ))}
+      <Grammar g={g} open={gOpen} setOpen={setGOpen} boxRef={gRef} />
       {isToday ? (
         <div className="bottom">
           <button className={`done ${done ? "is-done" : ""}`} onClick={markDone} disabled={done}>
