@@ -1,157 +1,191 @@
 """Pick a grammar topic for each word of the day and find the phrases to underline.
 
+Every day gets a list of topics its sentences genuinely illustrate; the script then
+picks one per day, spreading topics out so the same note doesn't keep coming back.
+
 Regenerate src/data/grammarTags.js after editing the word lists:
   node --input-type=module -e "import {WORDS} from './src/data/words.js'; import fs from 'fs'; fs.writeFileSync('/tmp/words.json', JSON.stringify(WORDS));"
-  python3 scripts/tag_grammar.py   # writes /tmp/grammar_tags.json
-then convert that JSON into src/data/grammarTags.js (one row per line).
+  python3 scripts/tag_grammar.py
 """
-import json, re, collections
-W = json.load(open('/tmp/words.json'))
-F = re.IGNORECASE
+import collections, json, os, re, sys
 
-def find(pattern, s, flags=0):
-    return [m.group(0) for m in re.finditer(pattern, s, flags)]
+sys.path.insert(0, os.path.dirname(__file__))
+from tag_grammar_base import (W, F, find, first_word, stem, default, imperative, reflexive, there_is,
+                              comparative, partitive, modal, question, negation, perfect, imperfect, possessive)
 
-IMP_START = r"^(Please|Open|Take|Pass|Bring|Give|Look|Wash|Water|Tell|Add|Chop|Slice|Put|Send|Wear|Don't|Let's|Be|Get)\b"
+OUT = os.path.join(os.path.dirname(__file__), "..", "src", "data", "grammarTags.js")
 
-def first_word(s):
-    m = re.match(r"^[\wÀ-ÿ'’]+(?:-[\wÀ-ÿ]+)*", s)
-    return m.group(0) if m else None
 
-def imperative(en, fr, de, it):
-    if not re.match(IMP_START, en) or fr.startswith("Attention"): return None
-    if en.startswith("Be careful") and False: pass
-    h = {}
-    m = re.match(r"^(Ne|N')\s?[\wÀ-ÿ'-]+(?: [\wÀ-ÿ]+)? pas", fr)
-    h['fr'] = [m.group(0) if m else first_word(fr)]
-    m2 = re.match(r"^[\wÄÖÜäöüß]+ wir(?: uns)?", de)
-    if re.match(r"^Lass uns", de): h['de'] = ["Lass uns"]
-    elif m2: h['de'] = [m2.group(0)]
-    else: h['de'] = [first_word(de)]
-    if it.startswith("Non "): h['it'] = [" ".join(it.split()[:2])]
-    else: h['it'] = [first_word(it)]
-    return h
+def word_hl(e):
+    """Underline the day's word itself in each sentence."""
+    return default(e[2], e[4], e[6], e[8], e[1], e)
 
-def reflexive(en, fr, de, it):
-    frp = r"\bnous nous [\wÀ-ÿ]+|\bse [\wÀ-ÿ]+|\bs'(?!il\b)[\wÀ-ÿ]+|\bme sens\b|\b[\wÀ-ÿ]+-toi\b"
-    f = find(frp, fr, F)
-    # exclude "se" false positives? ok
+
+# ---------- smaller topics ----------
+
+SEP = {"ab": "fährt", "an": "zündete", "auf": "Mach", "aus": "sieht", "mit": "Bring|Nimm", "nach": "geht",
+       "unter": "geht", "zu": "winkte", "dazu": "Gib", "entlang": "führt"}
+
+def separable(en, fr, de, it, e):
+    m = re.search(r"\b(ab|an|auf|aus|mit|nach|unter|zu|dazu|entlang)([.!?])$", de)
+    if not m: return None
+    v = re.search(r"\b(" + SEP[m.group(1)] + r")\b", de)
+    if not v: return None
+    return {"fr": [], "de": [v.group(0), m.group(1)], "it": []}
+
+START_DE = r"^(Im|Am|Auf|In|Nach|Vor|Letzten|Draußen|Heute|Morgen|Dann|Hier|Jetzt|Lass)\b"
+
+def verb_second(en, fr, de, it, e):
+    if not re.match(START_DE, de) or de.startswith("Lass") or de.startswith("Morgen wird"): return None
+    m = re.search(r"\b([a-zäöüß]+) (wir|ich|du|er|sie|es|die|der|das|man|ein|eine|alle)\b", de)
+    if not m: return None
+    return {"fr": [], "de": [m.group(0)], "it": []}
+
+def compound(en, fr, de, it, e):
+    if e[1] != "noun": return None
+    st = stem(e[5])
+    for tok in re.findall(r"[\wÄÖÜäöüß]+", de):
+        low, s = tok.lower(), st.lower()
+        if s in low and low != s and not re.fullmatch(re.escape(s) + r"(e|en|n|s|er|es)?", low) and len(low) >= len(s) + 3:
+            fs, its = stem(e[3]).lower()[:3], stem(e[7]).lower()[:3]
+            f = [x for x in find(r"\b[\wÀ-ÿ]+ (?:de |d'|à )(?:l'|la |le )?[\wÀ-ÿ]+", fr) if fs in x.lower()]
+            i = [x for x in find(r"\b[\wÀ-ÿ]+ (?:di |della |del |da |d')[\wÀ-ÿ]+", it) if its in x.lower()]
+            return {"fr": f[:1], "de": [tok], "it": i[:1]}
+    return None
+
+def contraction(en, fr, de, it, e):
+    d = find(r"\b(im|am|zum|zur|ins|beim|vom|ans|fürs)\b", de, F)
+    f = find(r"\b(au|aux)\b", fr)
+    i = find(r"\b(al|allo|alla|ai|agli|alle|del|dello|della|nel|nello|nella|sul|sulla|dal|dalla)\b", it, F)
+    if d and (f or i):
+        return {"fr": f[:1], "de": d[:1], "it": i[:1]}
+    return None
+
+def you(en, fr, de, it, e):
+    f = find(r"\b(s'il vous plaît|vous|tu|te|t'|toi|ton|ta|tes)\b", fr)
     if not f: return None
-    d = find(r"\b(mich|dich|sich|uns|euch)\b", de)
-    i = find(r"\b(mi|ti|si|ci|vi)\s+[\wÀ-ÿ]+|\b[\wÀ-ÿ]+(ati|iti|amoci|iamoci)\b", it, F)
-    return {'fr': f, 'de': d, 'it': i}
+    return {"fr": f[:1], "de": find(r"\b(du|dir|dich|dein\w*|Sie)\b", de)[:1], "it": find(r"\b(tu|ti|te|tuo|tua|sei|hai|puoi|vuoi|sai|per favore)\b", it, F)[:1]}
 
-def there_is(en, fr, de, it):
-    if not re.search(r"\bIl y a\b", fr, F): return None
-    return {'fr': find(r"\bil y a\b", fr, F), 'de': find(r"\bes gibt\b|\b(steht|sitzt|liegt|hängt|ist)\b", de, F)[:1], 'it': find(r"\bc'è\b|\bci sono\b", it, F)}
+def days(en, fr, de, it, e):
+    f = find(r"\ble (lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|soir|matin)\b|\bla nuit\b", fr)
+    d = find(r"\b(montags|dienstags|mittwochs|donnerstags|freitags|samstags|sonntags|morgens|abends|nachts|mittags)\b", de)
+    if not d: return None  # only real habits ("sonntags", "nachts"), not "die ganze Nacht"
+    return {"fr": f[:1], "de": d[:1], "it": find(r"\b(il lunedì|il martedì|il venerdì|il sabato|la domenica|la sera|la mattina|di notte)\b", it)[:1]}
 
-def comparative(en, fr, de, it):
-    f = find(r"\b(la |le |les )?plus [\wÀ-ÿ]+|\bmeilleur\w*|\bmoins [\wÀ-ÿ]+", fr, F)
+def punctuation(en, fr, de, it, e):
+    d = find(r", (aber|dass|weil|wenn)\b|, [\wäöüß]+ (?:[\wäöüß]+ )?zu [\wäöüß]+", de)
+    f = find(r"[\wÀ-ÿ]+ [?!]$", fr)
+    if d or (f and len(fr) > 25):
+        return {"fr": f[:1] or find(r"^[\wÀ-ÿ']+,", fr)[:1], "de": d[:1], "it": []}
+    return None
+
+def plural(en, fr, de, it, e):
+    if e[1] != "noun": return None
+    st = stem(e[3])
+    key = re.escape(st[:max(3, len(st) - 2)])
+    f = find(r"\b(les|des|ces|mes|nos|tes|ses|leurs|deux|trois|quatre) " + key + r"[\wÀ-ÿ]*[sx]\b", fr, F)
     if not f: return None
-    return {'fr': f, 'de': find(r"\b(größte\w*|beste\w*|am besten|mehr|weniger)\b", de), 'it': find(r"\bpiù [\wÀ-ÿ]+|\bmigliore\b", it)}
+    dst = stem(e[5]); ist = stem(e[7])
+    d = find(r"\b[\wÄÖÜäöüß]*" + re.escape(dst[:max(3, len(dst) - 2)]) + r"[\wäöüß]*", de, F)
+    i = find(r"\b(i|gli|le|due|tre|quattro|dei|delle|degli)?\s?" + re.escape(ist[:max(3, len(ist) - 1)]) + r"[\wÀ-ÿ]*", it, F)
+    return {"fr": f[:1], "de": d[:1], "it": [x.strip() for x in i[:1]]}
 
-def partitive(en, fr, de, it):
-    f = [m.group(2) for m in re.finditer(r"\b(acheté|veux|prends|mets|fait|fais|écouté|bu|mangé|mangeons|a|avec) ((?:du|de la|de l')\s?[\wÀ-ÿ]+)", fr)]
-    if not f: return None
-    return {'fr': f, 'de': find(r"\betwas [\wÀ-ÿ]+", de), 'it': find(r"\b(del|della|dello|dell'|dei|degli|delle) ?[\wÀ-ÿ]+|\bun po' di [\wÀ-ÿ]+", it)}
+def gender_of(word, lang):
+    w = word.lower()
+    if "(m.)" in w or "(m./f.)" in w: return "m" if "(m.)" in w else None
+    if "(f.)" in w or "(f. pl.)" in w: return "f"
+    first = w.split()[0]
+    return {"le": "m", "la": "f", "der": "m", "die": "f", "das": "n", "il": "m", "lo": "m", "i": "m", "le ": "f"}.get(first)
 
-def question(en, fr, de, it):
-    if not en.endswith("?"): return None
-    f = find(r"\b[\wÀ-ÿ]+-(t-)?(je|tu|il|elle|nous|vous|ils|elles|on)\b", fr) or find(r"^(Est-ce que|Qu'est-ce qu'on|Qu'est-ce que|Que|Quel|Quelle|Pourquoi|Où|Comment)\b", fr) or []
-    d = [first_word(de)]
-    i = find(r"^(Che cosa|Cosa|Che|Perché|Dove|Come|Quando|Chi)\b", it)
-    return {'fr': f, 'de': d, 'it': i}
+def gender_mix(en, fr, de, it, e):
+    if e[1] != "noun": return None
+    g = [gender_of(e[3], "fr"), gender_of(e[5], "de"), gender_of(e[7], "it")]
+    if None in g or e[3].startswith("les ") or e[7].startswith("i ") or e[7].startswith("le "): return None
+    if len(set(g)) > 1:
+        return word_hl(e)
+    return None
 
-def negation(en, fr, de, it):
-    f = find(r"\b(ne|n')\s?[\wÀ-ÿ'-]+(?: [\wÀ-ÿ]+)?? (pas|jamais|plus|rien|personne)\b", fr, F)
-    if not f:
-        f2 = find(r"\b(n'|ne )", fr)
-        if not f2: return None
-    return {'fr': f or find(r"\bne\b|\bn'\w+|\bpas\b", fr), 'de': find(r"\b(nicht|kein\w*|nie)\b", de), 'it': find(r"\b[Nn]on\b", it)}
+# ---------- pronunciation ----------
 
-def perfect(en, fr, de, it):
-    f = find(r"\b(j'ai|ai|as|a|avons|avez|ont|suis|es|est|sommes|êtes|sont|s'est|nous sommes)\s+(?:(?:déjà|enfin|encore|bien)\s+)?[\wÀ-ÿ]*(?:é|ée|és|ées|i|is|ie|it|u|ue|us|ert|erts|ait|aint|ise)\b", fr)
-    ETRE = r"^(suis|es|est|sommes|êtes|sont)\s"
-    MOVE = r"(tomb|venu|devenu|allé|arriv|parti|sorti|entr|rest|né|mort|mont|descendu|retourn)"
-    f = [x for x in f if not x.startswith("a vue") and (not re.match(ETRE, x) or re.search(r"\s" + MOVE, x))]
-    if not f: return None
-    d = find(r"\b(habe|hast|hat|haben|habt|bin|bist|ist|sind|seid)\b", de)
-    dp = find(r"\b(ge[\wäöüß]+(t|en)|[\wäöüß]+iert|ver[\wäöüß]+(t|en)|be[\wäöüß]+(t|en)|er[\wäöüß]+t|[\wäöüß]+ge[\wäöüß]+(t|en))\b(?=[.!?,]?$)", de)
-    i = find(r"\b(ho|hai|ha|abbiamo|avete|hanno|sono|sei|è|siamo|siete)\s+(?:già\s+)?[\wÀ-ÿ]+(?:ato|ata|ati|ate|uto|uta|uti|ute|ito|ita|iti|ite|so|sa|si|se|tto|tta|tti|tte|sto|sta|sti|ste)\b", it, F)
-    last = re.findall(r"([\wÄÖÜäöüß]+)[.!?]?$", de)
-    dd = d[:1] + last[-1:] if d else find(PRET_DE, de)
-    return {'fr': f, 'de': dd, 'it': i}
+def bare(w): return stem(w).lower()
 
-PRET_DE = r"\b(war|waren|hatte|hatten|trug|fühlte|winkte|fiel|sprang|bestiegen|rannte|verdeckte|zündete|wurde|kam|lief)\b"
-def imperfect(en, fr, de, it):
-    f = find(r"\b[\wÀ-ÿ]+(ait|aient)\b", fr)
-    f = [x for x in f if x.lower() not in ('lait','fait','parfait','plait','plaît')]
-    if not f: return None
-    d = find(r"\b(war|waren|warst|hatte|hatten|trug|fühlte|winkte|fiel|sprang|bestiegen|rannte|verdeckte|zündete|wurde)\b", de, F)
-    i = find(r"\b(era|erano|eri|ero)\b|\b[\wÀ-ÿ]+(ava|avano|eva|evano|iva|ivano)\b", it, F)
-    return {'fr': f, 'de': d, 'it': i}
+def p_silent(en, fr, de, it, e):
+    f = bare(e[3])
+    if re.search(r"[dtspxzg]s?$", f) or f.startswith("h"): return word_hl(e)
 
-def modal(en, fr, de, it):
-    f = find(r"\b(peux|peut|pouvez|pouvons|veux|veut|voulez|voudrais|dois|doit)\b", fr)
-    if not f: return None
-    return {'fr': f, 'de': find(r"\b(kann|kannst|können|möchte|möchtest|darf|soll|muss|will)\b", de, F), 'it': find(r"\b(posso|puoi|può|possiamo|vuoi|vuole|vorrei|devo|deve)\b", it, F)}
+def p_accents(en, fr, de, it, e):
+    if re.search(r"[äöü]", bare(e[5])) or re.search(r"[éèêç]", bare(e[3])) or re.search(r"[àèìòù]$", bare(e[7])): return word_hl(e)
 
-def possessive(en, fr, de, it):
-    f = find(r"\b(mon|ma|mes|ton|ta|tes|son|sa|ses|notre|nos|votre|vos|leur|leurs)\s+[\wÀ-ÿ'-]+", fr, F)
-    if not f: return None
-    d = find(r"\b(mein|dein|sein|ihr|unser|euer)(e|en|em|er|es)?\s+[\wÄÖÜäöüß-]+", de, F)
-    i = find(r"\b((il|la|i|le|del|della|al|alla|nel|nella|sul|sulla)\s+)?(mio|mia|miei|mie|tuo|tua|tuoi|tue|suo|sua|suoi|sue|nostro|nostra|nostri|nostre|vostro|vostra|loro)\s+[\wÀ-ÿ]+", it, F)
-    return {'fr': f, 'de': d, 'it': i}
+def p_cg(en, fr, de, it, e):
+    i = bare(e[7])
+    if re.search(r"c[ei]|g[ei]|ch|gh", i) or re.search(r"ch", bare(e[5])): return word_hl(e)
 
-ART_FR = r"(?:(?:le|la|les|un|une|des|du|ce|cet|cette|ces|l'|d')\s?)?"
-def stem(word):
-    w = re.sub(r"\s*\(.*?\)", "", word)
-    w = re.sub(r"^(le|la|les|der|die|das|il|lo|i|gli)\s+|^l'", "", w, flags=F)
-    return w.strip()
+def p_vowels(en, fr, de, it, e):
+    if re.search(r"ei|ie|eu|äu|au", bare(e[5])) and re.search(r"ou|oi|au|eau|ai|eu", bare(e[3])): return word_hl(e)
 
-def default(en, fr, de, it, typ, entry):
-    out = {}
-    for lang, word, sent in (('fr', entry[3], fr), ('de', entry[5], de), ('it', entry[7], it)):
-        st = stem(word)
-        key = st[:max(3, len(st) - 2)] if typ == 'adjective' else st[:max(3, len(st) - 1)]
-        if lang == 'de' and typ == 'noun': key = st[:max(3, len(st) - 1)]
-        if typ == 'noun':
-            arts = {'fr': r"(?:(?:le|la|les|un|une|des|du|de la|ce|cet|cette|ces|mon|ma|mes|ton|ta|son|sa|notre|nos|leur)\s+|(?:l'|d'))?",
-                    'de': r"(?:(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|kein\w*|mein\w*|dein\w*|unser\w*|ihr\w*|sein\w*|diese\w*)\s+(?:[\wäöüß]+\s+)?)?",
-                    'it': r"(?:(?:il|lo|la|i|gli|le|un|uno|una|del|della|al|alla|nel|nella|sul|sulla|dal|dalla|questo|questa|quel|quella|mio|mia|tuo|tua)\s+|(?:l'|un'|dell'|all'|nell'|sull'))?"}[lang]
-            m = re.search(arts + r"(?:[\wÀ-ÿ]+\s+)?" * 0 + r"\b" + re.escape(key) + r"[\wÀ-ÿ-]*", sent, F)
-            if not m:
-                m = re.search(r"\b\w*" + re.escape(key[:4]) + r"[\wÀ-ÿ-]*", sent, F)
-        else:
-            m = re.search(r"\b" + re.escape(key) + r"[\wÀ-ÿ]*", sent, F)
-        out[lang] = [m.group(0)] if m else []
-    return out
+def p_doubles(en, fr, de, it, e):
+    if re.search(r"(bb|cc|dd|ff|gg|ll|mm|nn|pp|rr|ss|tt|zz)", bare(e[7])): return word_hl(e)
 
-ORDER = [('imperative', imperative), ('reflexive', reflexive), ('there-is', there_is), ('comparative', comparative),
-         ('partitive', partitive), ('modal', modal), ('question', question), ('negation', negation), ('perfect', perfect),
-         ('imperfect', imperfect), ('possessive', possessive)]
+def p_nasal(en, fr, de, it, e):
+    if re.search(r"gn|gli", bare(e[7])) or re.search(r"(an|en|in|on|un|ain|ein)([^aeiouyn]|$)", bare(e[3])): return word_hl(e)
 
-res = []
-for e in W:
-    en, typ, s, fw, fr, dw, de, iw, it = e
-    tag = None
-    for name, fn in ORDER:
-        h = fn(s, fr, de, it)
-        if h:
-            tag = (name, h); break
-    if not tag:
-        tag = ('gender' if typ == 'noun' else 'agreement', default(s, fr, de, it, typ, e))
-    # drop empty/None spans
-    h = {k: [x for x in v if x] for k, v in tag[1].items()}
-    res.append([tag[0], h])
+def p_stress(en, fr, de, it, e):
+    i = bare(e[7])
+    if len(re.findall(r"[aeiouàèéìòù]+", i)) >= 3: return word_hl(e)
+
+def p_sz(en, fr, de, it, e):
+    d = bare(e[5])
+    if re.search(r"z|sch|^s[pt]|^s[aeiouäöü]", d) or "z" in bare(e[7]): return word_hl(e)
+
+
+def wrap(fn):
+    return lambda en, fr, de, it, e: fn(en, fr, de, it)
+
+# (id, detector, weight). Higher weight = allowed to appear more often.
+TOPICS = [
+    ("imperative", wrap(imperative), 1.6), ("reflexive", wrap(reflexive), 1.4), ("there-is", wrap(there_is), 1.4),
+    ("comparative", wrap(comparative), 1.4), ("partitive", wrap(partitive), 1.3), ("modal", wrap(modal), 1.3),
+    ("negation", wrap(negation), 1.3), ("question", wrap(question), 1.2), ("perfect", wrap(perfect), 1.5),
+    ("imperfect", wrap(imperfect), 1.2), ("possessive", wrap(possessive), 1.0),
+    ("separable", separable, 1.4), ("verb2", verb_second, 1.3), ("compound", compound, 1.4),
+    ("contraction", contraction, 1.0), ("you", you, 1.0), ("days", days, 1.2), ("punctuation", punctuation, 1.0),
+    ("plural", plural, 1.1), ("gender-mix", gender_mix, 1.1),
+    ("p-silent", p_silent, 0.6), ("p-accents", p_accents, 0.6), ("p-cg", p_cg, 0.6), ("p-vowels", p_vowels, 0.6),
+    ("p-doubles", p_doubles, 0.6), ("p-nasal", p_nasal, 0.6), ("p-stress", p_stress, 0.5), ("p-sz", p_sz, 0.6),
+]
 
 OVERRIDE = {
-  'fondue': ['imperative', {'fr': ["Si on mangeait"], 'de': ["Lass uns"], 'it': ["mangiamo"]}],
-  'pale': ['question', {'fr': ["ça va"], 'de': ["geht es dir gut"], 'it': ["stai bene"]}],
+    "fondue": ["imperative", {"fr": ["Si on mangeait"], "de": ["Lass uns"], "it": ["mangiamo"]}],
+    "pale": ["question", {"fr": ["ça va"], "de": ["geht es dir gut"], "it": ["stai bene"]}],
 }
-for i, e in enumerate(W):
-    if e[0] in OVERRIDE: res[i] = OVERRIDE[e[0]]
 
-c = collections.Counter(r[0] for r in res)
-print(c)
-json.dump(res, open('/tmp/grammar_tags.json', 'w'), ensure_ascii=False)
+count = collections.Counter()
+res, prev = [], None
+for e in W:
+    en, typ, s, fw, fr, dw, de, iw, it = e
+    if en in OVERRIDE:
+        tag = OVERRIDE[en]
+    else:
+        cands = []
+        for idx, (tid, fn, wt) in enumerate(TOPICS):
+            h = fn(s, fr, de, it, e)
+            if h:
+                score = (count[tid] + 1) / wt + (5 if tid == prev else 0) + idx * 0.001
+                cands.append((score, tid, h))
+        base = "gender" if typ == "noun" else "agreement"
+        cands.append(((count[base] + 1) / 0.9 + (5 if base == prev else 0) + 1, base, word_hl(e)))
+        _, tid, h = min(cands, key=lambda c: c[0])
+        tag = [tid, h]
+    h = {k: [x for x in v if x] for k, v in tag[1].items()}
+    # only keep highlights that really occur in the sentence
+    for k, i in (("fr", 4), ("de", 6), ("it", 8)):
+        h[k] = [x for x in h.get(k, []) if x in e[i]]
+    res.append([tag[0], h])
+    count[tag[0]] += 1
+    prev = tag[0]
+
+print(sorted(count.items(), key=lambda x: -x[1]))
+lines = [json.dumps([t, h.get("fr", []), h.get("de", []), h.get("it", [])], ensure_ascii=False, separators=(",", ":")) for t, h in res]
+with open(OUT, "w") as fh:
+    fh.write("// One grammar point per word of the day: [topicId, frHighlights, deHighlights, itHighlights].\n"
+             "// Generated by scripts/tag_grammar.py from the sentences.\nexport default [\n" + ",\n".join(lines) + ",\n];\n")

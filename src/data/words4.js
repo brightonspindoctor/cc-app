@@ -29,7 +29,7 @@ export default [
 ["romantic","adjective","We had a romantic dinner.","romantique","Nous avons fait un dîner romantique.","romantisch","Wir hatten ein romantisches Abendessen.","romantico","Abbiamo fatto una cena romantica."],
 ["harbour","noun","The boats are in the harbour.","le port","Les bateaux sont dans le port.","der Hafen","Die Boote liegen im Hafen.","il porto","Le barche sono nel porto."],
 ["magical","adjective","The old town looks magical in the snow.","magique","La vieille ville est magique sous la neige.","magisch","Die Altstadt sieht im Schnee magisch aus.","magico","Il centro storico è magico sotto la neve."],
-["wave","noun","A big wave soaked us.","la vague","Une grosse vague nous a trempés.","die Welle","Eine große Welle hat uns nass gemacht.","l'onda (f.)","Un'onda grande ci ha bagnati."],
+["wave","noun","A big wave soaked us.","la vague","Une grosse vague nous a trempés.","die Welle","Eine große Welle hat uns nass gemacht.","l'onda (f.)","Una grande onda ci ha bagnati."],
 ["lively","adjective","The bar is lively on Fridays.","animé","Le bar est animé le vendredi.","belebt","Die Bar ist freitags belebt.","animato","Il bar è animato il venerdì."],
 ["shell","noun","The children collected shells on the beach.","le coquillage","Les enfants ont ramassé des coquillages sur la plage.","die Muschel","Die Kinder haben am Strand Muscheln gesammelt.","la conchiglia","I bambini hanno raccolto conchiglie sulla spiaggia."],
 ["ancient","adjective","Rome is an ancient city.","antique","Rome est une ville antique.","antik","Rom ist eine antike Stadt.","antico","Roma è una città antica."],
