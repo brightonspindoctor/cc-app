@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { load, save, todayKey, prettyDate, streak, bestStreak } from "./lib/store.js";
+import { load, save, todayKey, prettyDate, streak, bestStreak, addDays } from "./lib/store.js";
 import { wordFor, START } from "./data/words.js";
 import { grammarFor } from "./data/grammar.js";
 import Bandit from "./Bandit.jsx";
@@ -246,8 +246,70 @@ function Calendar({ today, state, onPick, header }) {
   );
 }
 
+function BookIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M8 7.5h8M8 11h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const fold = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const bareWord = (t) => t.replace(/\s*\(.*?\)/g, "");
+
+function Dictionary({ today, state, onPick, header }) {
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState("az");
+  const done = new Set(state.protocolDone || []);
+  const entries = useMemo(() => {
+    const out = [];
+    for (let d = START; d <= today; d = addDays(d, 1)) out.push({ day: d, w: wordFor(d) });
+    return out;
+  }, [today]);
+  const needle = fold(q.trim());
+  const shown = entries
+    .filter(({ w }) => !needle || [w.en, w.fr, w.de, w.it].some((t) => fold(bareWord(t)).includes(needle)))
+    .sort((a, b) => (sort === "az" ? a.w.en.localeCompare(b.w.en) : b.day.localeCompare(a.day)));
+
+  return (
+    <main className="screen dictionary">
+      {header}
+      <h1 className="cal-title">Dictionary</h1>
+      <p className="status">{entries.length === 1 ? "1 word" : `${entries.length} words`} so far, in all four languages. Tap one to see its sentences.</p>
+      <div className="dict-tools">
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search in any language" aria-label="Search the dictionary" />
+        <div className="seg" role="group" aria-label="Sort">
+          <button className={sort === "az" ? "on" : ""} onClick={() => setSort("az")}>A–Z</button>
+          <button className={sort === "new" ? "on" : ""} onClick={() => setSort("new")}>Newest</button>
+        </div>
+      </div>
+      <ul className="dict">
+        {shown.map(({ day, w }) => (
+          <li key={day}>
+            <button onClick={() => onPick(day)}>
+              <div className="dict-en">
+                <strong>{w.en}</strong>
+                <em>{w.type === "noun" ? "n." : "adj."}</em>
+                {done.has(day) && <span className="dict-tick" aria-label="Learned">✓</span>}
+              </div>
+              <div className="dict-tr">
+                <span lang="fr"><Flag lang="fr" />{w.fr}</span>
+                <span lang="de"><Flag lang="de" />{w.de}</span>
+                <span lang="it"><Flag lang="it" />{w.it}</span>
+              </div>
+            </button>
+          </li>
+        ))}
+        {!shown.length && <li className="dict-none">No words match “{q}”.</li>}
+      </ul>
+    </main>
+  );
+}
+
 function Protocol({ today, state, update, back, celebrate }) {
-  const [sub, setSub] = useState("today"); // "today" | "calendar" | "YYYY-MM-DD"
+  const [sub, setSub] = useState("today"); // "today" | "calendar" | "dictionary" | "YYYY-MM-DD"
+  const [from, setFrom] = useState("calendar"); // where a past word was opened from
   useEffect(() => {
     if (!state.protocolSeen?.includes(today)) update((s) => ({ ...s, protocolSeen: [...(s.protocolSeen || []), today] }));
   }, [today, state.protocolSeen, update]);
@@ -259,17 +321,27 @@ function Protocol({ today, state, update, back, celebrate }) {
     </button>
   );
   const calBtn = <button className="back cal-btn" onClick={() => setSub("calendar")} aria-label="Past words"><CalendarIcon /></button>;
+  const dictBtn = <button className="back cal-btn" onClick={() => setSub("dictionary")} aria-label="Dictionary"><BookIcon /></button>;
+  const open = (origin) => (d) => { setFrom(origin); setSub(d); };
 
   if (sub === "calendar") {
-    return <Calendar today={today} state={state} onPick={(d) => setSub(d === today ? "today" : d)} header={<Header left={backBtn(() => setSub("today"))} />} />;
+    return <Calendar today={today} state={state} onPick={open("calendar")} header={<Header left={backBtn(() => setSub("today"))} />} />;
+  }
+  if (sub === "dictionary") {
+    return <Dictionary today={today} state={state} onPick={open("dictionary")} header={<Header left={backBtn(() => setSub("today"))} />} />;
   }
   if (sub !== "today") {
-    return <WordView day={sub} today={today} state={state} update={update} celebrate={celebrate} header={<Header left={backBtn(() => setSub("calendar"), "Back to calendar")} />} />;
+    return (
+      <WordView
+        day={sub} today={today} state={state} update={update} celebrate={celebrate}
+        header={<Header left={backBtn(() => setSub(from), from === "dictionary" ? "Back to dictionary" : "Back to calendar")} />}
+      />
+    );
   }
   return (
     <WordView
       day={today} today={today} state={state} update={update} celebrate={celebrate}
-      header={<Header left={back ? <span className="hdr-l">{backBtn(back)}{calBtn}</span> : calBtn} />}
+      header={<Header left={<span className="hdr-l">{back && backBtn(back)}{calBtn}{dictBtn}</span>} />}
     />
   );
 }
