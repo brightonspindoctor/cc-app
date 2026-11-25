@@ -114,12 +114,19 @@ function Reel({ items, pos, spinId, solo = 0, index, lit, onSettled }) {
   );
 }
 
-function Lever({ pulled, disabled, onPull }) {
+const LEVER_COLOURS = {
+  red: { rod: ["#8d8d8d", "#fafafa", "#b9b9b9", "#6c6c6c"], knob: ["#ff8a7a", "#e2301f", "#8a120a"] },
+  gold: { rod: ["#7a5a12", "#ffe9a8", "#c99a2e", "#6b4c0c"], knob: ["#4a4a4a", "#151515", "#000000"] },
+};
+
+function Lever({ pulled, disabled, onPull, variant = "red", label = "Pull the lever" }) {
+  const c = LEVER_COLOURS[variant];
+  const rod = `rod-${variant}`, knob = `knob-${variant}`;
   const startY = useRef(null);
   return (
     <button
-      className={`lever ${pulled ? "pulled" : ""} ${disabled ? "off" : ""}`}
-      aria-label="Pull the lever"
+      className={`lever lever-${variant} ${pulled ? "pulled" : ""} ${disabled ? "off" : ""}`}
+      aria-label={label}
       onClick={onPull}
       onPointerDown={(e) => (startY.current = e.clientY)}
       onPointerUp={(e) => {
@@ -129,20 +136,20 @@ function Lever({ pulled, disabled, onPull }) {
     >
       <svg viewBox="0 0 60 220" width="52" height="190" style={{ overflow: "visible" }}>
         <defs>
-          <linearGradient id="chrome" x1="0" x2="1">
-            <stop offset="0" stopColor="#8d8d8d" /><stop offset=".35" stopColor="#fafafa" />
-            <stop offset=".6" stopColor="#b9b9b9" /><stop offset="1" stopColor="#6c6c6c" />
+          <linearGradient id={rod} x1="0" x2="1">
+            <stop offset="0" stopColor={c.rod[0]} /><stop offset=".35" stopColor={c.rod[1]} />
+            <stop offset=".6" stopColor={c.rod[2]} /><stop offset="1" stopColor={c.rod[3]} />
           </linearGradient>
-          <radialGradient id="knob" cx=".35" cy=".3" r=".75">
-            <stop offset="0" stopColor="#ff8a7a" /><stop offset=".35" stopColor="#e2301f" /><stop offset="1" stopColor="#8a120a" />
+          <radialGradient id={knob} cx=".35" cy=".3" r=".75">
+            <stop offset="0" stopColor={c.knob[0]} /><stop offset=".35" stopColor={c.knob[1]} /><stop offset="1" stopColor={c.knob[2]} />
           </radialGradient>
         </defs>
         <g className="arm">
-          <rect x="25" y="34" width="10" height="150" rx="5" fill="url(#chrome)" />
-          <circle cx="30" cy="26" r="20" fill="url(#knob)" />
+          <rect x="25" y="34" width="10" height="150" rx="5" fill={`url(#${rod})`} />
+          <circle cx="30" cy="26" r="20" fill={`url(#${knob})`} />
           <ellipse cx="23" cy="18" rx="6" ry="4" fill="#fff" opacity=".55" />
         </g>
-        <rect x="14" y="178" width="32" height="38" rx="8" fill="url(#chrome)" />
+        <rect x="14" y="178" width="32" height="38" rx="8" fill={`url(#${rod})`} />
         <circle cx="30" cy="197" r="7" fill="#777" />
         <circle cx="30" cy="197" r="4" fill="#ccc" />
       </svg>
@@ -150,6 +157,68 @@ function Lever({ pulled, disabled, onPull }) {
   );
 }
 
+
+const GLUTES = [
+  ["Cable Kickbacks", "×12 each side", "Clip an ankle strap to a low cable and face the machine, holding on for balance. Keeping your leg almost straight, push it back and up by squeezing your bum, then return slowly."],
+  ["Weighted Step-ups", "×10 each side", "Hold dumbbells by your sides and step up onto a sturdy bench or step, driving through the heel of the top foot until you're standing tall. Step down with control."],
+  ["Donkey Kicks", "×15 each side", "On hands and knees, keep one knee bent at 90° and lift that foot towards the ceiling, as if stamping a footprint on it. Squeeze at the top, then lower without arching your back."],
+  ["Hip Thrusts", "×12", "Sit with your upper back against a bench, feet flat and a weight across your hips. Drive your hips up until your body is level from shoulders to knees, squeeze, then lower."],
+  ["Hip Abductions", "×15 each side", "Lie on your side with legs stacked (a band above the knees makes it harder). Lift your top leg up and slightly back, keeping your toes pointing forward, then lower slowly."],
+];
+
+function GluteMultiplier({ today, state, update }) {
+  const saved = state.glute?.date === today ? state.glute : null;
+  const [initial] = useState(() => ({ date: today, sel: GLUTES[rand(GLUTES.length)][0], spun: false }));
+  const g = saved || (initial.date === today ? initial : { date: today, sel: GLUTES[0][0], spun: false });
+  const pos = indexIn(GLUTES, g.sel);
+  const [spinId, setSpinId] = useState(0);
+  const [spinning, setSpinning] = useState(false);
+  const [pulled, setPulled] = useState(false);
+
+  const pull = () => {
+    if (g.spun || spinning) return;
+    setPulled(true);
+    navigator.vibrate?.(15);
+    setTimeout(() => setPulled(false), 420);
+    setTimeout(() => {
+      setSpinning(true);
+      update((s) => ({ ...s, glute: { date: today, sel: GLUTES[rand(GLUTES.length)][0], spun: true } }));
+      setSpinId((n) => n + 1);
+    }, 180);
+  };
+
+  const [name, dose, how] = GLUTES[pos];
+  return (
+    <section className="glute">
+      <div className="glute-head">
+        <h2>Glute Multiplier</h2>
+        <span>Bonus spin · once a day</span>
+      </div>
+      <div className="machine-wrap glute-wrap">
+        <div className="machine glute-machine">
+          <div className="glute-crown">
+            <span className={`bulb ${g.spun ? "" : "lit"} ${spinning ? "chase" : ""}`} />
+            <span className="glute-label">×</span>
+            <span className={`bulb ${g.spun ? "" : "lit"} ${spinning ? "chase" : ""}`} style={{ animationDelay: ".15s" }} />
+          </div>
+          <div className="window glute-window">
+            <Reel index={1} items={GLUTES} pos={pos} spinId={spinId} lit={g.spun} onSettled={() => setSpinning(false)} />
+            <div className="payline l" /><div className="payline r" />
+          </div>
+          <div className="base" />
+        </div>
+        <Lever variant="gold" label="Pull the Glute Multiplier lever" pulled={pulled} disabled={g.spun} onPull={pull} />
+      </div>
+      <p className="status glute-status">{!g.spun ? "Pull the gold lever for a bonus glute exercise." : spinning ? "Spinning…" : "Your bonus:"}</p>
+      {g.spun && !spinning && (
+        <div className="glute-result">
+          <div className="ex-row"><span>{name}</span><em>{dose}</em></div>
+          <p className="how">{how}</p>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function Dots({ n, max }) {
   return (
@@ -417,6 +486,8 @@ export default function Bandit({ today, state, update, back, celebrate, Header, 
           <li className="rounds">3 rounds · 30s rest between</li>
         </ol>
       )}
+
+      <GluteMultiplier today={today} state={state} update={update} />
 
       <div className="bottom">
         <button className={`done ${done ? "is-done" : ""}`} onClick={markDone} disabled={done || !spun || spinning}>
